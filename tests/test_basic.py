@@ -1,6 +1,6 @@
 import pytest
 
-from neet.trace import Value, make_traceable, Tracer
+from neet.trace import Value, make_traceable, Tracer, is_traceable
 
 
 @make_traceable
@@ -17,11 +17,13 @@ def mul(a, b):
     return a * b
 
 
+@make_traceable
 class CallableClass:
     def __init__(self) -> None:
         self._value = 0
 
     def __call__(self, value: int) -> int:
+        print("Entering __call__")
         self._value += value
         return self._value
 
@@ -59,6 +61,25 @@ def test_with_tracer(a, b, expected):
 )
 def test_without_tracer(a, b, expected):
     assert add(a, b) == expected
+
+
+def test_callable_class():
+    with Tracer():
+        c = CallableClass()
+        a = Value(1)
+        b = Value(2)
+        d = c(a)
+        d = c(b)
+        d = c(a)
+
+    assert d.data == 1
+    assert c._value == 1
+
+
+def test_is_traceable():
+    assert is_traceable(add)
+    assert is_traceable(mul)
+    assert is_traceable(CallableClass)
 
 
 if __name__ == "__main__":

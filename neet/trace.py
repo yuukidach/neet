@@ -1,4 +1,6 @@
 import functools
+import types
+import inspect
 
 __all__ = ["Value", "make_traceable", "is_traceable", "Tracer"]
 
@@ -58,26 +60,41 @@ class Value:
 
 def make_traceable(obj):
     """Make a class or function traceable."""
-    obj.__is_traceable__ = True
+    def _make_fn_traceable(fn):
+        @functools.wraps(fn)
+        def wrapper(*args, **kwargs):
+            if under_trace():
+                return Value(
+                    op=fn,
+                    args=args,
+                    kwargs=kwargs,
+                    name=fn.__name__,
+                )
+            else:
+                return fn(*args, **kwargs)
 
-    @functools.wraps(obj)
-    def wrapper(*args, **kwargs):
-        if under_trace():
-            return Value(
-                data=None,
-                name=obj.__name__,
-                op=obj,
-                args=args,
-                kwargs=kwargs,
-            )
-        else:
-            return obj(*args, **kwargs)
+        wrapper.__is_traceable__ = True
+        return wrapper
 
-    return wrapper
+    def _make_cls_traceable(cls):
+        setattr(cls, "__call__", _make_fn_traceable(cls.__call__))
+        return cls
+
+    if isinstance(obj, types.FunctionType):
+        return _make_fn_traceable(obj)
+    elif callable(obj):
+        return _make_cls_traceable(obj)
+    else:
+        raise TypeError(f"Cannot make {obj} traceable.")
 
 
 def is_traceable(obj):
-    return getattr(obj, "__is_traceable__", False)
+    if isinstance(obj, types.FunctionType):
+        return getattr(obj, "__is_traceable__", False)
+    elif callable(obj):
+        return getattr(obj.__call__, "__is_traceable__", False)
+    else:
+        return False
 
 
 def under_trace():
