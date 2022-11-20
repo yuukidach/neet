@@ -2,6 +2,7 @@
 env/*
 
 ### User specified exclude files
+!pyproject.toml
 
 
 # Virtualenv
